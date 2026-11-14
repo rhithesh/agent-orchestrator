@@ -629,6 +629,10 @@ type claudePostToolUseOutput struct {
 // mcp__computer-use__<tool>.
 const claudeComputerUseToolPrefix = "mcp__computer-use__"
 
+// envDesktopApp mirrors sessionmanager.EnvDesktopApp: "1" on sessions whose
+// daemon the Orchestrator desktop app started.
+const envDesktopApp = "AO_DESKTOP_APP"
+
 const computerUsePermissionNotice = "Computer use needs Orchestrator to have Accessibility and Screen Recording: macOS checks Orchestrator for " +
 	"everything this session runs, not Claude. Grant them in Orchestrator under Settings > Computer use agents > Native computer use > Grant macOS permissions to Orchestrator, " +
 	"then restart this session's agent if it still says not granted."
@@ -639,18 +643,31 @@ const computerUsePermissionContext = "This session runs inside Orchestrator, so 
 	"this session's agent needs a restart to see them."
 
 // computerUsePermissionDenied reports whether a tool result is Claude Code's
-// built-in computer use refusing because macOS has not granted its
-// permissions ("... permission(s) are still not granted").
+// built-in computer use refusing because macOS has not granted Accessibility
+// or Screen Recording ("macOS Accessibility permission(s) are still not
+// granted"). Other refusals, such as the user declining access to one app,
+// keep the tool's own explanation.
 func computerUsePermissionDenied(payload []byte) bool {
+	// Check the tool first: every Claude tool result passes through here, and
+	// only computer use's needs its response read.
+	if toolName, _ := activityMeta(payload); !strings.HasPrefix(toolName, claudeComputerUseToolPrefix) {
+		return false
+	}
 	var p struct {
-		ToolName     string          `json:"tool_name"`
 		ToolResponse json.RawMessage `json:"tool_response"`
 		Error        string          `json:"error"`
 	}
-	if json.Unmarshal(payload, &p) != nil || !strings.HasPrefix(p.ToolName, claudeComputerUseToolPrefix) {
+	if json.Unmarshal(payload, &p) != nil {
 		return false
 	}
-	return strings.Contains(strings.ToLower(string(p.ToolResponse)+"\n"+p.Error), "not granted")
+	for _, text := range []string{string(p.ToolResponse), p.Error} {
+		lower := strings.ToLower(text)
+		if strings.Contains(lower, "permission(s) are still not granted") &&
+			(strings.Contains(lower, "accessibility") || strings.Contains(lower, "screen recording")) {
+			return true
+		}
+	}
+	return false
 }
 
 // emitComputerUsePermissionNotice answers a Claude Code computer-use result
@@ -658,7 +675,9 @@ func computerUsePermissionDenied(payload []byte) bool {
 // model is told to name Orchestrator, whose grants macOS checks for the
 // session, instead of the Claude desktop app its own result names.
 func (c *commandContext) emitComputerUsePermissionNotice(agent, event, sessionID string, payload []byte) {
-	if domain.AgentHarness(agent) != domain.HarnessClaudeCode {
+	// Only under a desktop-started daemon does macOS check Orchestrator; under
+	// one started from a terminal, Claude's own advice names the right app.
+	if domain.AgentHarness(agent) != domain.HarnessClaudeCode || os.Getenv(envDesktopApp) != "1" {
 		return
 	}
 	var hookEventName string

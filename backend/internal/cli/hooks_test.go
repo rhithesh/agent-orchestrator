@@ -2624,6 +2624,7 @@ func TestClaudeHookArtifactNudgeFailsOpen(t *testing.T) {
 // and stays silent for every other tool result.
 func TestClaudeHookAnswersComputerUsePermissionRefusal(t *testing.T) {
 	t.Setenv("AO_SESSION_ID", "qa-1")
+	t.Setenv(envDesktopApp, "1")
 	cfg := setConfigEnv(t)
 	srv, _ := activityServer(t, http.StatusOK, `{"ok":true}`)
 	writeRunFileFor(t, cfg, srv)
@@ -2664,6 +2665,10 @@ func TestClaudeHookAnswersComputerUsePermissionRefusal(t *testing.T) {
 
 	granted := map[string]any{"session_id": "native", "tool_name": "mcp__computer-use__screenshot", "tool_response": "ok"}
 	otherTool := map[string]any{"session_id": "native", "tool_name": "Bash", "tool_response": "permission not granted"}
+	// The user declining one app is not a macOS refusal: Claude's own
+	// explanation stands.
+	appDeclined := map[string]any{"session_id": "native", "tool_name": "mcp__computer-use__request_access", "tool_response": "Access to Safari was not granted."}
+	onScreenText := map[string]any{"session_id": "native", "tool_name": "mcp__computer-use__screenshot", "tool_response": "Window text: permission not granted"}
 	for name, tc := range map[string]struct {
 		agent, event string
 		payload      map[string]any
@@ -2672,9 +2677,18 @@ func TestClaudeHookAnswersComputerUsePermissionRefusal(t *testing.T) {
 		"other tool":       {"claude-code", "post-tool-use", otherTool},
 		"pre-tool-use":     {"claude-code", "pre-tool-use", refused},
 		"non-Claude agent": {"codex", "post-tool-use", refused},
+		"app declined":     {"claude-code", "post-tool-use", appDeclined},
+		"on-screen text":   {"claude-code", "post-tool-use", onScreenText},
 	} {
 		if out := run(tc.agent, tc.event, tc.payload); out != "" {
 			t.Fatalf("%s produced output: %q", name, out)
 		}
+	}
+
+	// A daemon started from a terminal: macOS checks that terminal, so
+	// Claude's own advice is left alone.
+	t.Setenv(envDesktopApp, "")
+	if out := run("claude-code", "post-tool-use", refused); out != "" {
+		t.Fatalf("CLI-started daemon produced output: %q", out)
 	}
 }

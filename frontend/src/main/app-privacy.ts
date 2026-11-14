@@ -9,9 +9,12 @@ import { PRIVACY_PANES, type PrivacyPane } from "./privacy-guide";
 export type AppPrivacyGrants = Record<PrivacyPane, boolean>;
 
 /** Runs a file with arguments and resolves to its stdout. */
-export type RunFile = (file: string, args: string[]) => Promise<{ stdout: string }>;
+export type RunFile = (file: string, args: string[], options: { timeout: number }) => Promise<{ stdout: string }>;
 
 const OSASCRIPT = "/usr/bin/osascript";
+// A stalled osascript (waiting on a prompt, a wedged scripting bridge) must
+// not leave the settings row spinning and every computer-use action disabled.
+export const APP_PRIVACY_TIMEOUT_MS = 5_000;
 
 // Asked in a fresh process every time: a running process keeps the Screen
 // Recording answer it first got until it restarts, so Orchestrator cannot ask
@@ -25,7 +28,7 @@ export const APP_PRIVACY_SCRIPT = [
 /** Orchestrator's current grants; undefined when they cannot be read. */
 export async function readAppPrivacy(run: RunFile): Promise<AppPrivacyGrants | undefined> {
 	try {
-		const { stdout } = await run(OSASCRIPT, ["-l", "JavaScript", "-e", APP_PRIVACY_SCRIPT]);
+		const { stdout } = await run(OSASCRIPT, ["-l", "JavaScript", "-e", APP_PRIVACY_SCRIPT], { timeout: APP_PRIVACY_TIMEOUT_MS });
 		return parseAppPrivacy(stdout);
 	} catch {
 		return undefined;

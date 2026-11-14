@@ -128,6 +128,60 @@ describe("Orchestrator's own permissions", () => {
 		await waitFor(() => expect(bridgeMocks.updatePrivacyGuide).toHaveBeenLastCalledWith("orchestrator", { accessibility: true, screenRecording: true }), { timeout: 4_000 });
 	});
 
+	it("stop polling once the guide closes, even after a read fails", async () => {
+		document.documentElement.dataset.aoPlatform = "darwin";
+		daemon({ status: () => notInstalled });
+		let grants: { accessibility: boolean; screenRecording: boolean } | undefined = { accessibility: false, screenRecording: false };
+		bridgeMocks.getAppPrivacy.mockImplementation(async () => grants);
+		bridgeMocks.requestAppPrivacy.mockResolvedValue({ accessibility: false, screenRecording: false });
+		renderSection();
+
+		await userEvent.click(await appGear());
+		await waitFor(() => expect(bridgeMocks.showPrivacyGuide).toHaveBeenCalled());
+		// The next read fails, and the user closes the guide with its X.
+		grants = undefined;
+		bridgeMocks.updatePrivacyGuide.mockResolvedValue(false);
+		const readsBefore = bridgeMocks.getAppPrivacy.mock.calls.length;
+		const updatesBefore = bridgeMocks.updatePrivacyGuide.mock.calls.length;
+		// The failed read still reports in, with the last grants the guide showed.
+		await waitFor(() => {
+			expect(bridgeMocks.getAppPrivacy.mock.calls.length).toBeGreaterThan(readsBefore);
+			expect(bridgeMocks.updatePrivacyGuide.mock.calls.length).toBeGreaterThan(updatesBefore);
+		}, { timeout: 4_000 });
+		expect(bridgeMocks.updatePrivacyGuide).toHaveBeenLastCalledWith("orchestrator", { accessibility: false, screenRecording: false });
+		await waitFor(() => undefined);
+		const reads = bridgeMocks.getAppPrivacy.mock.calls.length;
+		await new Promise((resolve) => setTimeout(resolve, 2_500));
+		expect(bridgeMocks.getAppPrivacy.mock.calls.length).toBe(reads);
+	}, 10_000);
+
+	it("show their own failure under their section, not Cua Driver's", async () => {
+		document.documentElement.dataset.aoPlatform = "darwin";
+		daemon({ status: () => notInstalled });
+		bridgeMocks.getAppPrivacy.mockResolvedValue({ accessibility: false, screenRecording: false });
+		bridgeMocks.requestAppPrivacy.mockRejectedValue(new Error("System Settings did not open"));
+		renderSection();
+
+		await userEvent.click(await appGear());
+		const alert = await screen.findByRole("alert");
+		expect(alert).toHaveTextContent("System Settings did not open");
+		// Below the native section's row, so it reads as that section's error.
+		expect(screen.getByText("Grant macOS permissions to Orchestrator").compareDocumentPosition(alert) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+	});
+
+	it("keep Cua Driver's failures under Cua Driver, above their section", async () => {
+		document.documentElement.dataset.aoPlatform = "darwin";
+		daemon({ status: () => notInstalled });
+		bridgeMocks.getAppPrivacy.mockResolvedValue({ accessibility: true, screenRecording: true });
+		apiMocks.post.mockResolvedValue({ data: undefined, error: { message: "Installer could not start" } });
+		renderSection();
+
+		await userEvent.click(await screen.findByRole("button", { name: "Install · Official installer" }));
+		const alert = await screen.findByRole("alert");
+		expect(alert).toHaveTextContent("Installer could not start");
+		expect(screen.getByText("Native computer use").compareDocumentPosition(alert) & Node.DOCUMENT_POSITION_PRECEDING).toBeTruthy();
+	});
+
 	it("says when they cannot be checked", async () => {
 		document.documentElement.dataset.aoPlatform = "darwin";
 		daemon({ status: () => notInstalled });

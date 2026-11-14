@@ -90,7 +90,8 @@ export function ComputerUseSection({ titleHidden }: { titleHidden?: boolean }) {
 		refetchInterval: (query) => (query.state.data?.status === "running" ? JOB_POLL_MS : false),
 	});
 	const [action, setAction] = useState<"install" | "start" | "grant" | "guide" | "appGrant" | null>(null);
-	const [actionError, setActionError] = useState<string | null>(null);
+	// Which action failed travels with the message, so it shows under its section.
+	const [actionError, setActionError] = useState<{ action: NonNullable<typeof action>; message: string } | null>(null);
 	const [copied, setCopied] = useState(false);
 	const agentAccess = useUpdateComputerUse();
 	// Set when this panel starts a fresh install: installing the driver is asking
@@ -116,7 +117,7 @@ export function ComputerUseSection({ titleHidden }: { titleHidden?: boolean }) {
 		try {
 			await work();
 		} catch (cause) {
-			setActionError(cause instanceof Error ? cause.message : String(cause));
+			setActionError({ action: name, message: cause instanceof Error ? cause.message : String(cause) });
 		} finally {
 			setAction(null);
 		}
@@ -197,14 +198,26 @@ export function ComputerUseSection({ titleHidden }: { titleHidden?: boolean }) {
 	const statusUpdatedAt = status.dataUpdatedAt;
 	const appAccessibility = appPrivacy.data?.accessibility;
 	const appScreenRecording = appPrivacy.data?.screenRecording;
-	const appUpdatedAt = appPrivacy.dataUpdatedAt;
+	// A failed read (an error, or null from macOS) still reports in: the guide
+	// gets the last grants it was shown, so a close from its own side still
+	// ends the polling instead of leaving it running while this page is open.
+	const appUpdatedAt = Math.max(appPrivacy.dataUpdatedAt, appPrivacy.errorUpdatedAt);
+	const statusPolledAt = Math.max(statusUpdatedAt, status.errorUpdatedAt);
+	// Only the guided target's own poll re-runs the effect below: the other
+	// query's focus refetches would resend unchanged grants.
+	const guidePolledAt = guiding === "orchestrator" ? appUpdatedAt : guiding === "cuaDriver" ? statusPolledAt : 0;
+	const lastGranted = useRef<Partial<Record<PrivacyGuideTarget, Record<PrivacyPane, boolean>>>>({});
 	useEffect(() => {
-		let granted: Record<PrivacyPane, boolean>;
+		if (!guiding) return;
+		let granted: Record<PrivacyPane, boolean> | undefined;
 		if (guiding === "cuaDriver" && accessibilityState && screenRecordingState) {
 			granted = { accessibility: accessibilityState === "granted", screenRecording: screenRecordingState === "granted" };
 		} else if (guiding === "orchestrator" && appAccessibility !== undefined && appScreenRecording !== undefined) {
 			granted = { accessibility: appAccessibility, screenRecording: appScreenRecording };
-		} else return;
+		}
+		granted ??= lastGranted.current[guiding];
+		if (!granted) return;
+		lastGranted.current[guiding] = granted;
 		let current = true;
 		void aoBridge.app.updatePrivacyGuide(guiding, granted).then((open) => {
 			if (current && !open) {
@@ -213,7 +226,7 @@ export function ComputerUseSection({ titleHidden }: { titleHidden?: boolean }) {
 			}
 		}, () => undefined);
 		return () => { current = false; };
-	}, [guiding, accessibilityState, screenRecordingState, statusUpdatedAt, appAccessibility, appScreenRecording, appUpdatedAt]);
+	}, [guiding, accessibilityState, screenRecordingState, appAccessibility, appScreenRecording, guidePolledAt]);
 
 	const driverAction = installing ? (
 		<span role="status" className="inline-flex items-center gap-1.5 text-xs text-settings-muted">
@@ -294,6 +307,8 @@ export function ComputerUseSection({ titleHidden }: { titleHidden?: boolean }) {
 				) : null}
 			</SettingsSection>
 
+			{actionError && actionError.action !== "appGrant" ? <p role="alert" className="px-(--settings-row-inset) text-xs text-error">{actionError.message}</p> : null}
+
 			{(!installed || manualCommand) && status.isSuccess && !installing ? (
 				<div className="flex px-(--settings-row-inset)">
 					<Button type="button" size="sm" variant="quiet" className="-ml-2.5" onClick={() => void aoBridge.app.openExternal(RELEASES_URL)}>
@@ -323,7 +338,7 @@ export function ComputerUseSection({ titleHidden }: { titleHidden?: boolean }) {
 				</SettingsSection>
 			) : null}
 
-			{actionError ? <p role="alert" className="px-(--settings-row-inset) text-xs text-error">{actionError}</p> : null}
+			{actionError?.action === "appGrant" ? <p role="alert" className="px-(--settings-row-inset) text-xs text-error">{actionError.message}</p> : null}
 		</>
 	);
 }

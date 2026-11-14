@@ -1,11 +1,11 @@
 import { describe, expect, it, vi } from "vitest";
-import { APP_PRIVACY_SCRIPT, appBundlePath, parseAppPrivacy, readAppPrivacy, requestAppPrivacy } from "./app-privacy";
+import { APP_PRIVACY_SCRIPT, APP_PRIVACY_TIMEOUT_MS, appBundlePath, parseAppPrivacy, readAppPrivacy, requestAppPrivacy } from "./app-privacy";
 
 describe("readAppPrivacy", () => {
-	it("asks a fresh osascript for both grants", async () => {
+	it("asks a fresh osascript for both grants, with a timeout so a stalled one cannot hang the row", async () => {
 		const run = vi.fn().mockResolvedValue({ stdout: '{"accessibility":true,"screenRecording":false}\n' });
 		await expect(readAppPrivacy(run)).resolves.toEqual({ accessibility: true, screenRecording: false });
-		expect(run).toHaveBeenCalledWith("/usr/bin/osascript", ["-l", "JavaScript", "-e", APP_PRIVACY_SCRIPT]);
+		expect(run).toHaveBeenCalledWith("/usr/bin/osascript", ["-l", "JavaScript", "-e", APP_PRIVACY_SCRIPT], { timeout: APP_PRIVACY_TIMEOUT_MS });
 	});
 
 	it("reads nothing when osascript fails or answers something else", async () => {
