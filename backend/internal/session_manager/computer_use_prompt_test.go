@@ -130,7 +130,7 @@ func TestBuildSystemPromptMacPrivacySection(t *testing.T) {
 					t.Fatalf("%s %s chat=%v: section present=%v, want %v", goos, kind, chat, has, want)
 				}
 				if has {
-					for _, want := range []string{"macOS checks Orchestrator's privacy permissions", "not the permissions of Claude", "Settings > Computer use agents > Orchestrator permissions", "even if the tool names another app", "restart"} {
+					for _, want := range []string{"macOS checks Orchestrator's privacy permissions", "not the permissions of Claude", "Settings > Computer use agents > Native computer use > Grant macOS permissions to Orchestrator", "even if the tool names another app", "restart"} {
 						if !strings.Contains(sp, want) {
 							t.Fatalf("%s: section missing %q", kind, want)
 						}

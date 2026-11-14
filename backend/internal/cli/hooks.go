@@ -630,12 +630,12 @@ type claudePostToolUseOutput struct {
 const claudeComputerUseToolPrefix = "mcp__computer-use__"
 
 const computerUsePermissionNotice = "Computer use needs Orchestrator to have Accessibility and Screen Recording: macOS checks Orchestrator for " +
-	"everything this session runs, not Claude. Grant them in Orchestrator under Settings > Computer use agents > Orchestrator permissions, " +
+	"everything this session runs, not Claude. Grant them in Orchestrator under Settings > Computer use agents > Native computer use > Grant macOS permissions to Orchestrator, " +
 	"then restart this session's agent if it still says not granted."
 
 const computerUsePermissionContext = "This session runs inside Orchestrator, so macOS checks Orchestrator's permissions, not the Claude desktop app's " +
 	"or a terminal's, for everything it runs. Ignore the advice to grant Claude: tell the user to grant Accessibility and Screen Recording to " +
-	"Orchestrator in Orchestrator's Settings > Computer use agents > Orchestrator permissions, and that if it still says not granted afterwards, " +
+	"Orchestrator in Orchestrator's Settings > Computer use agents > Native computer use > Grant macOS permissions to Orchestrator, and that if it still says not granted afterwards, " +
 	"this session's agent needs a restart to see them."
 
 // computerUsePermissionDenied reports whether a tool result is Claude Code's

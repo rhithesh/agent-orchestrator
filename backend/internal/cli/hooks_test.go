@@ -2650,7 +2650,7 @@ func TestClaudeHookAnswersComputerUsePermissionRefusal(t *testing.T) {
 		}
 		wantEvent := map[string]string{"post-tool-use": "PostToolUse", "post-tool-use-failure": "PostToolUseFailure"}[event]
 		if got.HookSpecificOutput.HookEventName != wantEvent ||
-			!strings.Contains(got.SystemMessage, "Settings > Computer use agents > Orchestrator permissions") ||
+			!strings.Contains(got.SystemMessage, "Settings > Computer use agents > Native computer use > Grant macOS permissions to Orchestrator") ||
 			!strings.Contains(got.HookSpecificOutput.AdditionalContext, "Ignore the advice to grant Claude") ||
 			!strings.Contains(got.HookSpecificOutput.AdditionalContext, "restart") {
 			t.Fatalf("%s: unexpected output %+v", event, got)
@@ -2658,7 +2658,7 @@ func TestClaudeHookAnswersComputerUsePermissionRefusal(t *testing.T) {
 	}
 
 	failure := map[string]any{"session_id": "native", "tool_name": "mcp__computer-use__screenshot", "error": "Screen Recording permission(s) are still not granted"}
-	if out := run("claude-code", "post-tool-use-failure", failure); !strings.Contains(out, "Orchestrator permissions") {
+	if out := run("claude-code", "post-tool-use-failure", failure); !strings.Contains(out, "Grant macOS permissions to Orchestrator") {
 		t.Fatalf("refusal in error field not answered: %q", out)
 	}
 

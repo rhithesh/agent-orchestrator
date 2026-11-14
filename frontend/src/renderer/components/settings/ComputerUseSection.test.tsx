@@ -84,17 +84,19 @@ describe("Orchestrator's own permissions", () => {
 		daemon({ status: () => installed });
 		renderSection();
 		expect(await screen.findByText("Installed")).toBeInTheDocument();
-		expect(screen.queryByText("Orchestrator permissions")).not.toBeInTheDocument();
+		expect(screen.queryByText("Native computer use")).not.toBeInTheDocument();
+		expect(screen.queryByText("Grant macOS permissions to Orchestrator")).not.toBeInTheDocument();
 		expect(bridgeMocks.getAppPrivacy).not.toHaveBeenCalled();
 	});
 
-	it("explain why they matter once both are granted, and open the guide to review them", async () => {
+	it("sit under native computer use once both are granted, and open the guide to review them", async () => {
 		document.documentElement.dataset.aoPlatform = "darwin";
 		daemon({ status: () => notInstalled });
 		bridgeMocks.getAppPrivacy.mockResolvedValue({ accessibility: true, screenRecording: true });
 		renderSection();
 
-		expect(await screen.findByText("Claude Code's own computer use in terminal sessions runs as Orchestrator, so macOS checks these.")).toBeInTheDocument();
+		expect(await screen.findByText("Native computer use")).toBeInTheDocument();
+		expect(await screen.findByText("Grant macOS permissions to Orchestrator")).toBeInTheDocument();
 		await userEvent.click(await appGear());
 		expect(bridgeMocks.requestAppPrivacy).not.toHaveBeenCalled();
 		expect(bridgeMocks.showPrivacyGuide).toHaveBeenCalledWith(expect.objectContaining({
@@ -142,7 +144,7 @@ describe("ComputerUseSection", () => {
 		renderSection();
 
 		const install = await screen.findByRole("button", { name: "Install · Official installer" });
-		expect(screen.getByText("Lets agents see the screen and operate desktop apps.")).toBeInTheDocument();
+		expect(screen.getByText("Powers Orchestrator's computer use tools, so agents in chat sessions can see the screen and operate desktop apps.")).toBeInTheDocument();
 		expect(screen.queryByText("Background service")).not.toBeInTheDocument();
 
 		await userEvent.click(install);
@@ -205,7 +207,7 @@ describe("ComputerUseSection", () => {
 
 		const update = await screen.findByRole("button", { name: "Update to 0.37.0" });
 		expect(screen.queryByText("Background service")).not.toBeInTheDocument();
-		expect(screen.getByText("macOS permissions")).toBeInTheDocument();
+		expect(screen.getByText("Grant macOS permissions")).toBeInTheDocument();
 		expect(screen.queryByText(/Accessibility: Granted/)).not.toBeInTheDocument();
 		expect(screen.queryByText("/Users/me/.local/bin/cua-driver")).not.toBeInTheDocument();
 		expect(screen.getByRole("switch", { name: "Let agents use this computer" })).toBeEnabled();

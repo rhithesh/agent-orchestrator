@@ -58,7 +58,7 @@ var promptGOOS = runtime.GOOS
 // own grants the computer use section covers.
 const macPrivacyPrompt = "## macOS privacy permissions\n\n" +
 	"This session runs inside Orchestrator, so macOS checks Orchestrator's privacy permissions, such as Accessibility and Screen Recording, for everything you run here, including your own computer-use tools, not the permissions of Claude, a terminal or any other app. " +
-	"When a tool reports one of these as not granted, tell the user to grant it to Orchestrator in Orchestrator's Settings > Computer use agents > Orchestrator permissions, even if the tool names another app. " +
+	"When a tool reports one of these as not granted, tell the user to grant it to Orchestrator in Orchestrator's Settings > Computer use agents > Native computer use > Grant macOS permissions to Orchestrator, even if the tool names another app. " +
 	"If it was granted after this session started, this session's agent may need a restart to see it."
 
 // macPrivacyPromptFor returns the section for a terminal session on macOS, and

@@ -42,10 +42,11 @@ async function fetchInstallJob(): Promise<InstallJob> {
  * Cua Driver, the computer-use driver behind the agents' computer-use tools. Installs
  * through the daemon's fixed installer allowlist like the agent CLIs do, then
  * shows the facts that decide whether agents can use it: the background
- * service and, on macOS, the privacy permissions CuaDriver.app holds. Also on
- * macOS, Orchestrator's own permissions, which Claude Code's built-in computer
- * use needs in terminal sessions: macOS checks Orchestrator, not Claude, for
- * everything a session runs.
+ * service and, on macOS, the privacy permissions CuaDriver.app holds. On macOS
+ * a second section, native computer use, holds Orchestrator's own permissions,
+ * which agents' built-in computer use (Claude Code's, Codex's) needs in
+ * terminal sessions: macOS checks Orchestrator, not the agent, for everything
+ * a session runs.
  */
 export function ComputerUseSection({ titleHidden }: { titleHidden?: boolean }) {
 	const { t } = useTranslation();
@@ -239,12 +240,12 @@ export function ComputerUseSection({ titleHidden }: { titleHidden?: boolean }) {
 	const driverDescription = failed && job.data?.error ? <span className="text-error">{job.data.error}</span>
 		: manualCommand ? job.data?.error || t("settings.computerUse.manualInstall")
 		: installed && current?.version ? <span className="font-mono">{current.version}</span>
-		: t("settings.computerUse.driverDescription");
+		: undefined;
 
 	return (
 		<>
-			<SettingsSection title={t("settings.computerUse")} sectionId="computerUse" titleHidden={titleHidden} grouped>
-				<SettingsRow label={t("settings.computerUse.driver")} description={driverDescription}>
+			<SettingsSection title={t("settings.computerUse.driver")} description={t("settings.computerUse.driverDescription")} sectionId="computerUse" titleHidden={titleHidden} grouped>
+				<SettingsRow label={t("settings.computerUse.driverStatus")} description={driverDescription}>
 					{driverAction}
 				</SettingsRow>
 				<AgentAccessRow installed={installed} access={agentAccess} />
@@ -286,12 +287,30 @@ export function ComputerUseSection({ titleHidden }: { titleHidden?: boolean }) {
 						) : null}
 					</>
 				) : null}
-				{mac ? (
+				{status.isError ? (
+					<div className="settings-content-row">
+						<p role="alert" className="text-xs text-error">{status.error instanceof Error ? status.error.message : t("settings.computerUse.loadFailed")}</p>
+					</div>
+				) : null}
+			</SettingsSection>
+
+			{(!installed || manualCommand) && status.isSuccess && !installing ? (
+				<div className="flex px-(--settings-row-inset)">
+					<Button type="button" size="sm" variant="quiet" className="-ml-2.5" onClick={() => void aoBridge.app.openExternal(RELEASES_URL)}>
+						<ExternalLink aria-hidden="true" />{t("settings.harness.installGuide")}
+					</Button>
+				</div>
+			) : null}
+
+			{/* Agents' own computer use (Claude Code's, Codex's) runs as Orchestrator,
+			    so macOS checks Orchestrator's grants, not Cua Driver's. */}
+			{mac ? (
+				<SettingsSection title={t("settings.computerUse.native")} description={t("settings.computerUse.nativeDescription")} sectionId="nativeComputerUse" titleHidden={titleHidden} grouped>
 					<SettingsRow
 						label={t("settings.computerUse.appPermissions")}
 						description={appPrivacy.isPending ? undefined
 							: !appPrivacy.data ? t("settings.computerUse.appPermissionsUnknown")
-							: allGrantedMap(appPrivacy.data) ? t("settings.computerUse.appPermissionsDescription")
+							: allGrantedMap(appPrivacy.data) ? undefined
 							: `${t("settings.computerUse.accessibility")}: ${t(`settings.computerUse.permission.${appPrivacy.data.accessibility ? "granted" : "missing"}`)} · ${t("settings.computerUse.screenRecording")}: ${t(`settings.computerUse.permission.${appPrivacy.data.screenRecording ? "granted" : "missing"}`)}`}
 					>
 						<PermissionsGear
@@ -301,23 +320,10 @@ export function ComputerUseSection({ titleHidden }: { titleHidden?: boolean }) {
 							onClick={() => void grantApp()}
 						/>
 					</SettingsRow>
-				) : null}
-				{status.isError ? (
-					<div className="settings-content-row">
-						<p role="alert" className="text-xs text-error">{status.error instanceof Error ? status.error.message : t("settings.computerUse.loadFailed")}</p>
-					</div>
-				) : null}
-			</SettingsSection>
+				</SettingsSection>
+			) : null}
 
 			{actionError ? <p role="alert" className="px-(--settings-row-inset) text-xs text-error">{actionError}</p> : null}
-
-			{(!installed || manualCommand) && status.isSuccess && !installing ? (
-				<div className="flex px-(--settings-row-inset)">
-					<Button type="button" size="sm" variant="quiet" className="-ml-2.5" onClick={() => void aoBridge.app.openExternal(RELEASES_URL)}>
-						<ExternalLink aria-hidden="true" />{t("settings.harness.installGuide")}
-					</Button>
-				</div>
-			) : null}
 		</>
 	);
 }
