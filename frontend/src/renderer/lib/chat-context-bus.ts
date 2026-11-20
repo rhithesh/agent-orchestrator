@@ -8,9 +8,13 @@ import { sessionUiKey } from "./hosts";
 // trees. A composer registers while it can accept a new draft; the session
 // view registers to bring the Chat surface forward when a reference arrives.
 type ReferenceListener = (reference: ChatFileReference) => boolean | void;
+type ImageListener = (file: File) => boolean | void;
 type RevealListener = () => void;
 
 const composers = new Map<string, Set<ReferenceListener>>();
+// Composers that can take a file attachment right now (the Browser panel's
+// region snip hands its capture here).
+const imageComposers = new Map<string, Set<ImageListener>>();
 const revealers = new Map<string, Set<RevealListener>>();
 const availabilityListeners = new Set<() => void>();
 
@@ -43,6 +47,16 @@ export function subscribeChatComposerReferences(sessionId: string, listener: Ref
 	};
 }
 
+/** Registers the session's Chat composer as the destination for images. */
+export function subscribeChatComposerImages(sessionId: string, listener: ImageListener): () => void {
+	const remove = add(imageComposers, sessionId, listener);
+	notifyAvailability();
+	return () => {
+		remove();
+		notifyAvailability();
+	};
+}
+
 /** Registers a callback that brings the session's Chat surface on screen. */
 export function subscribeChatReveal(sessionId: string, listener: RevealListener): () => void {
 	return add(revealers, sessionId, listener);
@@ -62,6 +76,26 @@ export function sendReferenceToChat(sessionId: string, reference: ChatFileRefere
 	return accepted;
 }
 
+export function hasChatImageComposer(sessionId: string): boolean {
+	return (imageComposers.get(sessionId)?.size ?? 0) > 0;
+}
+
+/** An image is accepted only when a listening composer takes it as an attachment. */
+export function sendImageToChat(sessionId: string, file: File): boolean {
+	const listeners = imageComposers.get(sessionId);
+	if (!listeners?.size) return false;
+	let accepted = false;
+	// One attachment per image: stop at the first composer that takes it.
+	for (const listener of listeners) {
+		if (listener(file) !== false) {
+			accepted = true;
+			break;
+		}
+	}
+	if (accepted) for (const reveal of revealers.get(sessionId) ?? []) reveal();
+	return accepted;
+}
+
 function subscribeAvailability(listener: () => void): () => void {
 	availabilityListeners.add(listener);
 	return () => availabilityListeners.delete(listener);
@@ -70,6 +104,12 @@ function subscribeAvailability(listener: () => void): () => void {
 /** True while the session has a Chat composer that can take a reference. */
 export function useHasChatComposer(sessionId: string): boolean {
 	const getSnapshot = useCallback(() => hasChatComposer(sessionId), [sessionId]);
+	return useSyncExternalStore(subscribeAvailability, getSnapshot, () => false);
+}
+
+/** True while the session has a Chat composer that can take an image attachment. */
+export function useHasChatImageComposer(sessionId: string): boolean {
+	const getSnapshot = useCallback(() => hasChatImageComposer(sessionId), [sessionId]);
 	return useSyncExternalStore(subscribeAvailability, getSnapshot, () => false);
 }
 

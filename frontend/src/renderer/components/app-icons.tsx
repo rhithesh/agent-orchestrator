@@ -204,6 +204,7 @@ import {
 	Settings2 as LucideSettings2,
 	SlidersHorizontal as LucideSlidersHorizontal,
 	Split as LucideSplit,
+	SquareDashedMousePointer as LucideSquareDashedMousePointer,
 	StickyNote as LucideStickyNote,
 	Strikethrough as LucideStrikethrough,
 	Workflow as LucideWorkflow,
@@ -502,3 +503,6 @@ export const Ungroup = fromLucide(LucideUngroup, "ungroup");
 export const UserPlus = fromMyna(MynaUserPlus, "user-plus");
 export const ZoomIn = fromMyna(MynaSearchPlus, "zoom-in");
 export const ZoomOut = fromMyna(MynaSearchMinus, "zoom-out");
+
+// Browser panel: snip an area of the page into chat.
+export const SquareDashedMousePointer = fromLucide(LucideSquareDashedMousePointer, "square-dashed-mouse-pointer");
