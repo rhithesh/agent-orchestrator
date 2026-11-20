@@ -391,6 +391,7 @@ if (typeof window !== "undefined") {
 			completeAnnotation: async () => undefined,
 			discardAnnotations: async () => undefined,
 			annotationAction: async () => undefined,
+			setRegionSelectMode: async () => false,
 			onNavState: () => () => undefined,
 			onFindState: () => () => undefined,
 			onPageFocus: () => () => undefined,
@@ -402,6 +403,8 @@ if (typeof window !== "undefined") {
 			onProfileManage: () => () => undefined,
 			onAnnotationSubmit: () => () => undefined,
 			onAnnotationCancel: () => () => undefined,
+			onRegionSelectCaptured: () => () => undefined,
+			onRegionSelectCancel: () => () => undefined,
 			onAnnotationState: () => () => undefined,
 		},
 		browserProfiles: {

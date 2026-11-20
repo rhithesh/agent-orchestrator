@@ -126,7 +126,7 @@ import { rememberAttachmentName } from "../../lib/chat-attachment-names";
 import { rememberSentAttachments } from "../../lib/sent-attachment-previews";
 import { isCloudAttachmentReference } from "../../lib/cloud-attachment-reference";
 import { setChatDraftBoundary } from "../../lib/chat-draft-boundary";
-import { subscribeChatComposerReferences } from "../../lib/chat-context-bus";
+import { subscribeChatComposerImages, subscribeChatComposerReferences } from "../../lib/chat-context-bus";
 
 // These responses precede AppendUserMessage. Provider/transport errors can
 // follow durable acceptance and must keep the original delivery ID for recovery.
@@ -2038,6 +2038,22 @@ export const ChatComposer = memo(function ChatComposer({
 		if (!hasText) event.preventDefault();
 		attachFiles(files);
 	}
+
+	// An image from another panel (the Browser panel's region snip) joins the
+	// draft the way a pasted one does, under the same conditions.
+	const acceptImageRef = useRef<(file: File) => boolean>(() => false);
+	acceptImageRef.current = (file) => {
+		if (!canAttach || fileAttachments.preparing || draftMutationPending || submitInFlight.current) return false;
+		if (fileAttachments.attachments.length + fileAttachments.pendingAttachments.length >= MAX_ATTACHMENTS) return false;
+		attachFiles([file]);
+		// The Chat surface may only now be coming forward.
+		window.requestAnimationFrame(() => window.requestAnimationFrame(() => editor.current?.focus()));
+		return true;
+	};
+	useEffect(() => {
+		if (!draftSessionId || !canAttach) return;
+		return subscribeChatComposerImages(draftSessionId, (file) => acceptImageRef.current(file));
+	}, [canAttach, draftSessionId]);
 
 	function onDrop(event: DragEvent<HTMLFormElement>) {
 		setDragging(false);
